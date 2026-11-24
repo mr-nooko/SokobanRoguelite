@@ -1,0 +1,15 @@
+# Keep the Win64 editor modules that match the project's UE 5.5.4 build.
+/Binaries/*
+!/Binaries/Win64/
+/Binaries/Win64/*
+!/Binaries/Win64/UnrealEditor.modules
+!/Binaries/Win64/UnrealEditor-SokobanRoguelite.dll
+!/Binaries/Win64/UnrealEditor-SokobanRules.dll
+!/Binaries/Win64/UnrealEditor-SokobanWorkbench.dll
+/Build/Windows/FileOpenOrder/
+/DerivedDataCache/
+/Intermediate/
+/Saved/
+/.vs/
+*.sln
+~$*.docx
