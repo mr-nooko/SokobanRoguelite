@@ -551,7 +551,7 @@ private:
                     return StructureTool == EStructureTool::None && Brush == Entry.Brush ? FLinearColor(.20f, .70f, .68f) : FLinearColor::White;
                 })
                 .Text(FText::FromString(Entry.Label))
-                .OnClicked_Lambda([this, Entry] { Brush = Entry.Brush; SetStructureTool(EStructureTool::None); return FReply::Handled(); })
+                .OnClicked(this, &SGridWorkbench::ChooseBrush, Entry.Brush)
             ];
             ++Index;
         }
@@ -559,6 +559,18 @@ private:
             + SVerticalBox::Slot().AutoHeight().Padding(2, 0, 0, 3)
             [ SNew(STextBlock).Text(Title) ]
             + SVerticalBox::Slot().AutoHeight() [ Panel ];
+    }
+
+    FReply ChooseBrush(EBrush NewBrush)
+    {
+        Brush = NewBrush;
+        SetStructureTool(EStructureTool::None);
+        MoveSelection.Reset();
+        MoveSelectionFootprint.Reset();
+        SelectedComponent.Reset();
+        SyncComponentSelection();
+        RefreshComponentDetails();
+        return FReply::Handled();
     }
 
     FText GetBoardTitle() const
@@ -2834,6 +2846,9 @@ bool FGridWorkbenchTabTest::RunTest(const FString&)
     TestTrue(TEXT("Add the laser and start marker to the copy selection"),
         SendGesture({2, 3}, {2, 3}, Right, true) && SendGesture({0, 5}, {0, 5}, Right, true));
     Panel->OnKeyDown(FGeometry(), FKeyEvent(EKeys::C, Ctrl, 0, false, 0, 0));
+    Panel->ChooseBrush(EBrush::Laser);
+    TestTrue(TEXT("Changing brushes after copying clears the original selection"),
+        Panel->MoveSelection.IsEmpty() && Panel->MoveSelectionFootprint.IsEmpty());
     Panel->OnKeyDown(FGeometry(), FKeyEvent(EKeys::V, Ctrl, 0, false, 0, 0));
     TestTrue(TEXT("Paste mode rejects an occupied destination"), SendGesture({3, 1}, {3, 1}));
     TestTrue(TEXT("A blocked paste makes no partial changes"), Draft->Boxes.Num() == 1 && Draft->Enemies.Num() == 1);
@@ -2844,6 +2859,15 @@ bool FGridWorkbenchTabTest::RunTest(const FString&)
         Draft->Boxes[1].bEject && Draft->Boxes[1].Id != Draft->Boxes[0].Id &&
         Draft->Enemies[1].Cell == FIntPoint(4, 1) && Draft->Enemies[1].BeamDirection == FIntPoint(0, -1) &&
         Draft->Enemies[1].Id != Draft->Enemies[0].Id && Draft->Start == FIntPoint(0, 5));
+    TestFalse(TEXT("A completed paste selects the new components"), Panel->MoveSelection.IsEmpty());
+    Panel->ChooseBrush(EBrush::Wall);
+    TestTrue(TEXT("Switching brushes leaves paint active and clears the selection and highlights"),
+        Panel->Brush == EBrush::Wall && Panel->StructureTool == EStructureTool::None &&
+        Panel->MoveSelection.IsEmpty() && Panel->MoveSelectionFootprint.IsEmpty() &&
+        !Panel->SelectedComponent.IsSet());
+    Panel->OnKeyDown(FGeometry(), FKeyEvent(EKeys::V, Ctrl, 0, false, 0, 0));
+    TestTrue(TEXT("The copied components can still be pasted after changing brushes"),
+        Panel->Clipboard.IsValid() && Panel->StructureTool == EStructureTool::Paste);
     Panel->ApplyHistory(false);
     TestTrue(TEXT("One undo removes the full paste without touching the source"),
         Draft->Boxes.Num() == 1 && Draft->Boxes[0].Cell == FIntPoint(3, 2) &&
